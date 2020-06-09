@@ -1,0 +1,33 @@
+{
+  "name": "team-134-backend",
+  "version": "0.0.1",
+  "description": "Backend for Smart Bin project for Andela BuildForSDGs Challenge",
+  "main": "app.js",
+  "repository": "https://github.com/BuildForSDG/team-134",
+  "author": "Team-134",
+  "license": "MIT",
+  "private": false,
+  "scripts": {
+    "start": "node app.js",
+    "dev-server": "nodemon app.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:cover": "jest --coverage"
+  },
+  "dependencies": {
+    "axios": "^0.19.2",
+    "bcrypt": "^4.0.1",
+    "body-parser": "^1.19.0",
+    "dotenv": "^8.2.0",
+    "express": "^4.17.1",
+    "jsonwebtoken": "^8.5.1",
+    "mongoose": "^5.9.12",
+    "morgan": "^1.10.0",
+    "winston": "^3.2.1",
+    "mongodb-memory-server": "^6.5.2"
+  },
+  "devDependencies": {
+    "jest": "^26.0.1",
+    "nodemon": "^2.0.3"
+  }
+}
