@@ -78,6 +78,7 @@ const login = (req, res, next) => {
               message: 'login successful',
               // eslint-disable-next-line no-underscore-dangle
               id: user._id,
+              username: user.username,
               token
             });
         })

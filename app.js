@@ -1,8 +1,14 @@
 
 const express = require('express');
+
+const app = express();
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const morgan = require('morgan');
+const http = require('http');
+const socketio = require('socket.io');
+const path = require('path');
+// const compression = require('compression');
 const { MongoMemoryServer } = require('mongodb-memory-server'); // for use with tests
 require('dotenv').config();
 
@@ -10,8 +16,7 @@ const logger = require('./utils/winston');
 const userRoutes = require('./routes/user');
 const binRoutes = require('./routes/bin');
 const auth = require('./middleware/auth');
-
-const app = express();
+const { sendEmail } = require('./utils/email');
 
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
@@ -23,6 +28,8 @@ if (process.env.NODE_ENV === 'development') {
 // parse request bodies
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
+// gzip compress response body
+// app.use(compression);
 
 const mongoOptions = {
   //   user: process.env.MONGO_USERNAME,
@@ -60,23 +67,24 @@ if (process.env.NODE_ENV_TESTING === 'true') {
   }
 }
 
-// Get the default connection
-const db = mongoose.connection;
-db.on('error', (err) => {
-  logger.error(`MongoDB | ${err.message}`);
-});
-
-// server start listening once connected to db
-db.on('open', () => {
-  logger.info('MongoDB is up');
-  app.listen(process.env.PORT).on('listening', () => logger.info('Server listening'))
-    .on('error', (err) => { logger.error(`Server | ${err.message}`); });
-});
+// in development, provide index route which will listen for any incoming socket connections
+// if (process.env.NODE_ENV === 'development') {
+//   app.get('/', (req, res) => {
+//     res.sendStatus(200);
+//   });
+// } else{ // TODO: otherwise in production, serve frontend
 
 // map endpoint path to route file
 app.use('/api/v1/users', userRoutes);
-app.use('/api/v1/bins', auth, binRoutes);
+// eslint-disable-next-line no-use-before-define
+app.use('/api/v1/bins', auth, binRoutes, emitEvent);
 app.use('/api/v1', userRoutes); // to allow POST /login route
+
+// serve frontend
+app.use(express.static('public'));
+app.get(/^\/(.*)/, (req, res) => {
+  res.sendFile(path.join(__dirname, './public', 'index.html'));
+});
 
 // any invalid endpoints that don't match the above are handled here
 app.use((req, res, next) => {
@@ -107,3 +115,48 @@ app.use((err, req, res, next) => {
   res.json({ message: err.message });
   logger.error(`${req.url} | ${err.message}`);
 });
+
+const server = http.createServer(app);
+
+// Get the default connection
+const db = mongoose.connection;
+db.on('error', (err) => {
+  logger.error(`MongoDB | ${err.message}`);
+});
+
+// server start listening once connected to db
+db.on('open', () => {
+  logger.info('MongoDB is up');
+  server.listen(process.env.PORT).on('listening', () => logger.info(`Server listening on port ${process.env.PORT}`))
+    .on('error', (err) => { logger.error(`Server | ${err.message}`); });
+});
+
+const io = socketio(server);
+
+// sockets for real time data
+io.on('connection', (socket) => {
+  // socket.broadcast.emit('hi');
+  // logger.debug(`a user has connected: ${socket.client.id}`);
+  socket.on('disconnect', () => {
+    // logger.debug('a user has disconnected');
+  });
+
+  socket.on('binSimulation', ({ userId, simulHeight }) => {
+    socket.broadcast.emit('binSimulation', simulHeight);
+    const msg = `<p>BIN-SIMUL is full.</>
+                <p>Please empty it.</p>
+                <p>Regards, <b>PingBin Team</b></p>`;
+    if (simulHeight >= 99) {
+      sendEmail(userId, 'Bin Full', msg);
+    }
+  });
+});
+
+function emitEvent(req, res, next) {
+  try {
+    io.emit('bin', res.locals.sockdata);
+    res.sendStatus(201);
+  } catch (error) {
+    next(error);
+  }
+}

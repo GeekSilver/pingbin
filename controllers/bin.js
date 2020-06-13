@@ -1,5 +1,6 @@
 
 const Bin = require('../models/Bin');
+const { sendEmail } = require('../utils/email');
 
 exports.createBin = async (req, res, next) => {
   try {
@@ -33,13 +34,42 @@ exports.getBin = async (req, res, next) => {
 exports.updateBin = async (req, res, next) => {
   try {
     // eslint-disable-next-line camelcase
-    const updateObj = req.body;
-    const result = await Bin.updateOne({ _id: req.params.id }, updateObj).exec();
+    const { update, meta } = req.body;
+    const result = await Bin.updateOne({ _id: req.params.id }, update).exec();
+    if (result.n === 0) {
+      res.status(404).json({ message: 'No bin matches that id' });
+      return;
+    }
+    // res.sendStatus(201); // will respond in the next middleware
+    if (update.current_height >= 99) {
+      const msg = `<p>Bin ${meta.bin_code} is full.</>
+                <p>Please empty it.</p>
+                <p>Regards, <b>PingBin Team</b></p>`;
+      sendEmail(req.headers.userid, 'Bin Full', msg);
+    }
+    res.locals.sockdata = {
+      binId: req.params.id, height: update.current_height
+    };
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.setBinEmptied = async (req, res, next) => {
+  try {
+    const update = req.body;
+    update.lastEmptied = new Date().toISOString();
+    const result = await Bin.updateOne({ _id: req.params.id }, update).exec();
     if (result.n === 0) {
       res.status(404).json({ message: 'No bin matches that id' });
       return;
     }
     res.sendStatus(201);
+    const msg = `<p>Bin ${update.bin_code} has been emptied.</>
+                <p>Great work</p>
+                <p>Regards, <b>PingBin Team</b></p>`;
+    sendEmail(req.headers.userid, 'Bin Emptied', msg);
   } catch (error) {
     next(error);
   }

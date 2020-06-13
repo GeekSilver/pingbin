@@ -10,7 +10,8 @@ const binSchema = new Schema({
   min_height: { type: Number, required: true },
   current_weight: { type: Number, default: 0 }, // bin might be empty initially
   current_height: { type: Number, default: 0 },
-  bin_code: { type: String, required: true, unique: true }
+  bin_code: { type: String, required: true, unique: true },
+  lastEmptied: { type: Date }
 });
 
 module.exports = mongoose.model('Bin', binSchema);
