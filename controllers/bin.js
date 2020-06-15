@@ -7,7 +7,8 @@ exports.createBin = async (req, res, next) => {
     const bin = new Bin(req.body);
     const doc = await bin.save();
     // eslint-disable-next-line no-underscore-dangle
-    res.status(201).json({ binId: doc._id });
+    // res.status(201).json({ binId: doc._id });
+    res.status(201).json(doc);
   } catch (error) {
     next(error); // this will go to the error handler in app.js e.g. if there's a db error above
   }
@@ -40,17 +41,20 @@ exports.updateBin = async (req, res, next) => {
       res.status(404).json({ message: 'No bin matches that id' });
       return;
     }
-    // res.sendStatus(201); // will respond in the next middleware
-    if (update.current_height >= 99) {
-      const msg = `<p>Bin ${meta.bin_code} is full.</>
-                <p>Please empty it.</p>
-                <p>Regards, <b>PingBin Team</b></p>`;
-      sendEmail(req.headers.userid, 'Bin Full', msg);
+    if (update.current_height) { // go to email,sockets only if there is an update in current_height
+      if (update.current_height >= 99) {
+        const msg = `<p>Bin ${meta.bin_code} is full.</>
+                  <p>Please empty it.</p>
+                  <p>Regards, <b>PingBin Team</b></p>`;
+        sendEmail(req.headers.userid, 'Bin Full', msg);
+      }
+      res.locals.sockdata = {
+        binId: req.params.id, height: update.current_height
+      };
+      next();
+    } else {
+      res.sendStatus(201);
     }
-    res.locals.sockdata = {
-      binId: req.params.id, height: update.current_height
-    };
-    next();
   } catch (error) {
     next(error);
   }
